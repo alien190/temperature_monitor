@@ -4,25 +4,35 @@ import sys
 import time
 from datetime import timedelta
 import mysql.connector
-import random
+import board
+import adafruit_dht
+
 
 class MeasurmentSaver(object):
     
     def __init__(self, user, password):
         self.user = user
         self.password = password
+        self.mydb = None
      
     def __enter__(self):
-        self.mydb = mysql.connector.connect(host='localhost',
+        try:
+            self.mydb = mysql.connector.connect(host='localhost',
                                        user=self.user,
                                        password=self.password,
                                        database = 'monitor')
-        print('Connected to DB')
+            print('Connected to DB')
+        except Exception as error:
+            print(error)     
         return self.save
  
     def __exit__(self, *args):
-        print('DB connection is closed')
+        if self.mydb == None:
+            print('Error! Can not close connection to DB')
+            return
+        
         self.mydb.close() 
+        print('DB connection is closed')
 
     def save(self, sensor_id: int, date: datetime, temperature: float, humidity: float):
         print('    date: {}'.format(date)) 
@@ -40,6 +50,11 @@ class MeasurmentSaver(object):
         print(' H4 date: {} ({})'.format(h4, h4.timestamp()))
         d1 = datetime.datetime(year=date.year, month=date.month, day=date.day)
         print(' D1 date: {} ({})'.format(d1, d1.timestamp()))
+        print('Temperature: {}C, humidity: {}%'.format(temperature, humidity))
+
+        if self.mydb == None:
+            print('Error! Can not store to DB')
+            return
 
         mycursor = self.mydb.cursor()
 
@@ -79,6 +94,8 @@ def exit_program():
     print("Exiting the program...")
     sys.exit(0)
 
+def get_gpio(gpio_id):
+    if gpio_id == 4: return board.D4
 
 def main():
 
@@ -89,21 +106,25 @@ def main():
         db_user = config['db_user']
         db_password = config['db_password']
         sensor_id = config['sensor_id']
+        gpio_id = config['gpio_id']
+        sleep_seconds = config['sleep_seconds']
     except Exception as error:
         print(error)   
         exit_program()
 
     last_stored_date = None
 
+    dhtDevice = adafruit_dht.DHT22(get_gpio(gpio_id), use_pulseio=False)
+
     while True:
         try:
-            temperature = random.random() * 100
-            humidity = random.random() * 100
+            temperature = dhtDevice.temperature
+            humidity = dhtDevice.humidity
             date = datetime.datetime.now()
     
         except RuntimeError as error:
             print(error.args[0])
-            time.sleep(4.0)
+            time.sleep(sleep_seconds)
             continue
         except Exception as error:
             exit_program()
@@ -114,7 +135,7 @@ def main():
            with MeasurmentSaver(db_user, db_password) as save:
                 save(sensor_id, date, temperature, humidity)  
     
-        time.sleep(4.0)
+        time.sleep(sleep_seconds)
 
 
 if __name__ == "__main__":
