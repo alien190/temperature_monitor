@@ -11,20 +11,18 @@ sql_limit = 5
 def request_last_uploaded_timetamp(remote_host: str):
     request = requests.get("http://" + remote_host + "/get_data/last_timestamp/")
     if(request.status_code != 200): 
-          print('Error! Can not get last_uploaded_timestam')
-          exit_program()
+        raise Exception('Error! Can not get last_uploaded_timestam')
+
     data = json.loads(request.text)
-    
     return data['last_timestamp']     
 
 def send_data(remote_host: str, data):
     data_to_send = {"measurments" : data}
     request = requests.post("http://" + remote_host + "/update_data/", json=data_to_send)
     if(request.status_code != 200): 
-          print('Error! Can not upload data')
-          print(request.status_code)
-          exit_program()
-
+        print(request.status_code)
+        raise Exception('Error! Can not upload data')
+      
 class MeasurmentGetter(object):
     
     def __init__(self, user, password):
