@@ -1,17 +1,18 @@
 import json
 import time
 import yaml
-import sys
 from datetime import timedelta
 import mysql.connector
 import requests
+from logger import Logger
 
-sql_limit = 5
+
+sql_limit = 25
 
 def request_last_uploaded_timetamp(remote_host: str):
     request = requests.get("http://" + remote_host + "/get_data/last_timestamp/")
     if(request.status_code != 200): 
-        raise Exception('Error! Can not get last_uploaded_timestam')
+        raise Exception('Error! Can not get last_uploaded_timestamp. Status code:' + str(request.status_code))
 
     data = json.loads(request.text)
     return data['last_timestamp']     
@@ -20,15 +21,15 @@ def send_data(remote_host: str, data):
     data_to_send = {"measurments" : data}
     request = requests.post("http://" + remote_host + "/update_data/", json=data_to_send)
     if(request.status_code != 200): 
-        print(request.status_code)
-        raise Exception('Error! Can not upload data')
+        raise Exception('Can not upload data. Staus code:' + str(request.status_code))
       
 class MeasurmentGetter(object):
     
-    def __init__(self, user, password):
+    def __init__(self, user, password, logger: Logger):
         self.user = user
         self.password = password
         self.mydb = None
+        self.logger = logger
      
     def __enter__(self):
         try:
@@ -36,22 +37,22 @@ class MeasurmentGetter(object):
                                        user=self.user,
                                        password=self.password,
                                        database = 'monitor')
-            print('Connected to DB')
+            self.logger.log_info('Connected to DB')
         except Exception as error:
-            print(error)     
+            self.logger.log_error(str(error))     
         return self.get
  
     def __exit__(self, *args):
         if self.mydb == None:
-            print('Error! Can not close connection to DB')
+            self.logger.log_error('Can not close connection to DB')
             return
         
         self.mydb.close() 
-        print('DB connection is closed')
+        self.logger.log_info('DB connection is closed')
 
     def get(self, last_timestamp: int):
         if self.mydb == None:
-            print('Error! Can not store to DB')
+            self.logger.log_error('Can not store to DB')
             return
 
         mycursor = self.mydb.cursor(dictionary=True)
@@ -75,25 +76,27 @@ def main():
             db_user = config['db_user']
             db_password = config['db_password']
             remote_host = config['remote_host']
+            is_debug_enabled = True if config['is_debug_enabled'] == 1 else False
+            logger = Logger(filename='data_sender.log', is_debug_enabled=is_debug_enabled)
             
             last_timestamp = request_last_uploaded_timetamp(remote_host)
 
-            print(last_timestamp)
+            logger.log_info(str(last_timestamp))
 
-            with MeasurmentGetter(db_user, db_password) as get:
+            with MeasurmentGetter(db_user, db_password, logger) as get:
                 while(True):
                     data = get(last_timestamp)
                     send_data(remote_host, data)
                     if(len(data) == sql_limit): 
                         last_timestamp = data[sql_limit-1]['timestamp']
-                        print(last_timestamp)
+                        logger.log_info(str(last_timestamp))
                     else:    
                         break
                 
         except Exception as error:
-            print(error)   
+            logger.log_error(str(error))   
 
-        time.sleep(5)    
+        time.sleep(300)    
         
 
 if __name__ == "__main__":

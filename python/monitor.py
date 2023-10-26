@@ -6,54 +6,55 @@ from datetime import timedelta
 import mysql.connector
 import board
 import adafruit_dht
-
+from logger import Logger
 
 class MeasurmentSaver(object):
     
-    def __init__(self, user, password):
+    def __init__(self, user, password, logger: Logger):
         self.user = user
         self.password = password
         self.mydb = None
-     
+        self.logger = logger
+
     def __enter__(self):
         try:
             self.mydb = mysql.connector.connect(host='localhost',
                                        user=self.user,
                                        password=self.password,
                                        database = 'monitor')
-            print('Connected to DB')
+            self.logger.log_info('Connected to DB')
         except Exception as error:
-            print(error)     
+            self.logger.log_error(str(error))     
         return self.save
  
     def __exit__(self, *args):
         if self.mydb == None:
-            print('Error! Can not close connection to DB')
+            self.logger.log_error('Can not close connection to DB')
             return
         
         self.mydb.close() 
-        print('DB connection is closed')
+        self.logger.log_info('DB connection is closed')
 
     def save(self, sensor_id: int, date: datetime, temperature: float, humidity: float):
-        print('    date: {}'.format(date)) 
+        self.logger.log_info('    date: {}'.format(date)) 
         m1 = datetime.datetime(year=date.year, month=date.month, day=date.day, hour=date.hour, minute=date.minute)
-        print(' M1 date: {} ({})'.format(m1, m1.timestamp()))
+        self.logger.log_info(' M1 date: {} ({})'.format(m1, m1.timestamp()))
         m5 = datetime.datetime(year=date.year, month=date.month, day=date.day, hour=date.hour, minute= (date.minute // 5) * 5)
-        print(' M5 date: {} ({})'.format(m5, m5.timestamp()))
+        self.logger.log_info(' M5 date: {} ({})'.format(m5, m5.timestamp()))
         m15 = datetime.datetime(year=date.year, month=date.month, day=date.day, hour=date.hour, minute= (date.minute // 15) * 15)
-        print('M15 date: {} ({})'.format(m15, m15.timestamp()))
+        self.logger.log_info('M15 date: {} ({})'.format(m15, m15.timestamp()))
         m30 = datetime.datetime(year=date.year, month=date.month, day=date.day, hour=date.hour, minute= (date.minute // 30) * 30)
-        print('M30 date: {} ({})'.format(m30, m30.timestamp()))
+        self.logger.log_info('M30 date: {} ({})'.format(m30, m30.timestamp()))
         h1 = datetime.datetime(year=date.year, month=date.month, day=date.day, hour=date.hour)
-        print(' H1 date: {} ({})'.format(h1, h1.timestamp()))
+        self.logger.log_info(' H1 date: {} ({})'.format(h1, h1.timestamp()))
         h4 = datetime.datetime(year=date.year, month=date.month, day=date.day, hour=(date.hour // 4) * 4)
-        print(' H4 date: {} ({})'.format(h4, h4.timestamp()))
+        self.logger.log_info(' H4 date: {} ({})'.format(h4, h4.timestamp()))
         d1 = datetime.datetime(year=date.year, month=date.month, day=date.day)
-        print(' D1 date: {} ({})'.format(d1, d1.timestamp()))
-        print('Temperature: {}C, humidity: {}%'.format(temperature, humidity))
+        self.logger.log_info(' D1 date: {} ({})'.format(d1, d1.timestamp()))
+        self.logger.log_info('Temperature: {}C, humidity: {}%'.format(temperature, humidity))
 
         if self.mydb == None:
-            print('Error! Can not store to DB')
+            self.logger.log_error('Can not store to DB')
             return
 
         mycursor = self.mydb.cursor()
@@ -88,10 +89,10 @@ class MeasurmentSaver(object):
         mycursor.execute(sql, val)
         self.mydb.commit()
 
-        print('-------------------------------------------------------------------------')
+        self.logger.log_info('-------------------------------------------------------------------------')
+
 
 def exit_program():
-    print("Exiting the program...")
     sys.exit(0)
 
 def get_gpio(gpio_id):
@@ -108,6 +109,8 @@ def main():
         sensor_id = config['sensor_id']
         gpio_id = config['gpio_id']
         sleep_seconds = config['sleep_seconds']
+        is_debug_enabled = True if config['is_debug_enabled'] == 1 else False
+        logger = Logger(filename='monitor.log', is_debug_enabled=is_debug_enabled)
     except Exception as error:
         print(error)   
         exit_program()
@@ -123,7 +126,7 @@ def main():
             date = datetime.datetime.now()
     
         except RuntimeError as error:
-            print(error.args[0])
+            logger.log_info(str(error.args[0]))
             time.sleep(sleep_seconds)
             continue
         except Exception as error:
@@ -132,7 +135,7 @@ def main():
 
         if last_stored_date == None or date - last_stored_date >= timedelta(seconds=15):
            last_stored_date = date
-           with MeasurmentSaver(db_user, db_password) as save:
+           with MeasurmentSaver(db_user, db_password, logger) as save:
                 save(sensor_id, date, temperature, humidity)  
     
         time.sleep(sleep_seconds)
