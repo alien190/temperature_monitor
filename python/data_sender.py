@@ -9,17 +9,20 @@ from logger import Logger
 
 sql_limit = 25
 
-def request_last_uploaded_timetamp(remote_host: str):
-    request = requests.get("http://" + remote_host + "/get_data/last_timestamp/")
+def request_last_uploaded_timetamp(remote_host: str, sensor_id:int):
+    request = requests.get("http://" + remote_host + "/get_data/last_timestamp/",  
+                           params= {'sensor_id': sensor_id})
     if(request.status_code != 200): 
         raise Exception('Error! Can not get last_uploaded_timestamp. Status code:' + str(request.status_code))
 
     data = json.loads(request.text)
     return data['last_timestamp']     
 
-def send_data(remote_host: str, data):
-    data_to_send = {"measurments" : data}
-    request = requests.post("http://" + remote_host + "/update_data/", json=data_to_send)
+def send_data(remote_host: str, sensor_id:int, data):
+    data_to_send = {'measurments' : data}
+    request = requests.post("http://" + remote_host + "/update_data/", 
+                            json=data_to_send,
+                            params= {'sensor_id': sensor_id})
     if(request.status_code != 200): 
         raise Exception('Can not upload data. Staus code:' + str(request.status_code))
       
@@ -50,7 +53,7 @@ class MeasurmentGetter(object):
         self.mydb.close() 
         self.logger.log_info('DB connection is closed')
 
-    def get(self, last_timestamp: int):
+    def get(self, last_timestamp: int, sensor_id: int):
         if self.mydb == None:
             self.logger.log_error('Can not store to DB')
             return
@@ -59,11 +62,12 @@ class MeasurmentGetter(object):
 
         sql = """SELECT * FROM measurings 
                     WHERE timestamp >= %s
+                    AND sensor_id = %s
                     ORDER BY timestamp ASC
                     LIMIT %s
                     """
         
-        val = (last_timestamp,sql_limit)
+        val = (last_timestamp, sensor_id, sql_limit)
         mycursor.execute(sql, val)
         return mycursor.fetchall()
 
@@ -76,6 +80,7 @@ def main():
             db_user = config['db_user']
             db_password = config['db_password']
             remote_host = config['remote_host']
+            sensor_id = config['sensor_id']
             is_debug_enabled = True if config['is_debug_enabled'] == 1 else False
             logger = Logger(filename='data_sender.log', is_debug_enabled=is_debug_enabled)
             
@@ -85,8 +90,8 @@ def main():
 
             with MeasurmentGetter(db_user, db_password, logger) as get:
                 while(True):
-                    data = get(last_timestamp)
-                    send_data(remote_host, data)
+                    data = get(last_timestamp, sensor_id)
+                    send_data(remote_host, sensor_id, data)
                     if(len(data) == sql_limit): 
                         last_timestamp = data[sql_limit-1]['timestamp']
                         logger.log_info(str(last_timestamp))
