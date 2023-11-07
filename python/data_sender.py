@@ -84,7 +84,7 @@ def main():
             is_debug_enabled = True if config['is_debug_enabled'] == 1 else False
             logger = Logger(filename='data_sender.log', is_debug_enabled=is_debug_enabled)
             
-            last_timestamp = request_last_uploaded_timetamp(remote_host)
+            last_timestamp = request_last_uploaded_timetamp(remote_host, sensor_id)
 
             logger.log_info(str(last_timestamp))
 
