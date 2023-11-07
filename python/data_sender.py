@@ -18,11 +18,9 @@ def request_last_uploaded_timetamp(remote_host: str, sensor_id:int):
     data = json.loads(request.text)
     return data['last_timestamp']     
 
-def send_data(remote_host: str, sensor_id:int, data):
+def send_data(remote_host: str, data):
     data_to_send = {'measurments' : data}
-    request = requests.post("http://" + remote_host + "/update_data/", 
-                            json=data_to_send,
-                            params= {'sensor_id': sensor_id})
+    request = requests.post("http://" + remote_host + "/update_data/", json=data_to_send)
     if(request.status_code != 200): 
         raise Exception('Can not upload data. Staus code:' + str(request.status_code))
       
@@ -91,7 +89,7 @@ def main():
             with MeasurmentGetter(db_user, db_password, logger) as get:
                 while(True):
                     data = get(last_timestamp, sensor_id)
-                    send_data(remote_host, sensor_id, data)
+                    send_data(remote_host, data)
                     if(len(data) == sql_limit): 
                         last_timestamp = data[sql_limit-1]['timestamp']
                         logger.log_info(str(last_timestamp))
