@@ -97,6 +97,7 @@ def exit_program():
 
 def get_gpio(gpio_id):
     if gpio_id == 4: return board.D4
+    if gpio_id == 5: return board.D5
 
 def main():
 
