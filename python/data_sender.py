@@ -24,7 +24,7 @@ def send_data(remote_host: str, data):
     if(request.status_code != 200): 
         raise Exception('Can not upload data. Staus code:' + str(request.status_code))
       
-class MeasurmentGetter(object):
+class TemperaturesGetter(object):
     
     def __init__(self, user, password, logger: Logger):
         self.user = user
@@ -86,7 +86,7 @@ def main():
 
             logger.log_info(str(last_timestamp))
 
-            with MeasurmentGetter(db_user, db_password, logger) as get:
+            with TemperaturesGetter(db_user, db_password, logger) as get:
                 while(True):
                     data = get(last_timestamp, sensor_id)
                     send_data(remote_host, data)
