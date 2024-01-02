@@ -59,7 +59,7 @@ class MeasurmentSaver(object):
 
         mycursor = self.mydb.cursor()
 
-        sql = """INSERT INTO measurings 
+        sql = """INSERT INTO temperatures 
                     (timestamp,
                     sensor_id,
                     m5,

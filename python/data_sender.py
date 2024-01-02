@@ -10,7 +10,7 @@ from logger import Logger
 sql_limit = 25
 
 def request_last_uploaded_timetamp(remote_host: str, sensor_id:int):
-    request = requests.get("http://" + remote_host + "/get_data/last_timestamp/",  
+    request = requests.get("http://" + remote_host + "/get_data/temperatures_last_timestamp/",  
                            params= {'sensor_id': sensor_id})
     if(request.status_code != 200): 
         raise Exception('Error! Can not get last_uploaded_timestamp. Status code:' + str(request.status_code))
@@ -19,8 +19,8 @@ def request_last_uploaded_timetamp(remote_host: str, sensor_id:int):
     return data['last_timestamp']     
 
 def send_data(remote_host: str, data):
-    data_to_send = {'measurments' : data}
-    request = requests.post("http://" + remote_host + "/update_data/", json=data_to_send)
+    data_to_send = {'values' : data}
+    request = requests.post("http://" + remote_host + "/update_data/temperatures/", json=data_to_send)
     if(request.status_code != 200): 
         raise Exception('Can not upload data. Staus code:' + str(request.status_code))
       
@@ -58,7 +58,7 @@ class MeasurmentGetter(object):
 
         mycursor = self.mydb.cursor(dictionary=True)
 
-        sql = """SELECT * FROM measurings 
+        sql = """SELECT * FROM temperatures 
                     WHERE timestamp >= %s
                     AND sensor_id = %s
                     ORDER BY timestamp ASC
